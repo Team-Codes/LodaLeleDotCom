@@ -9,8 +9,12 @@ import os
 import sys
 import json
 
+intents = discord.Intents.default()
+intents.guilds = True  # required for get_channel to work properly
+intents.voice_states = True
+
 TOKEN = input("> TOKEN: ")
-bot = commands.Bot(command_prefix=">", self_bot=True, help_command=None)
+bot = commands.Bot(command_prefix=">", self_bot=True, help_command=None, intents=intents)
 
 @bot.event
 async def on_ready():
@@ -412,6 +416,39 @@ async def blast(ctx, count: int, *, text: str):
             if e.status == 429:
                 print("Rate limited. Stopping...")
                 break
+
+@bot.command()
+async def jvc(ctx, channel_id: int, mute: bool = False, deafen: bool = False):
+    """Join a VC by ID and optionally mute/deafen (for discord.py 1.7.3)"""
+    channel = bot.get_channel(channel_id)
+
+    if channel is None:
+        await ctx.send("❌ Channel not found. Make sure the ID is valid and cached.")
+        return
+
+    if not isinstance(channel, discord.VoiceChannel):
+        await ctx.send("❌ That ID is not a voice channel.")
+        return
+
+    try:
+        vc = await channel.connect()
+        # Manually update voice state
+        await ctx.guild.change_voice_state(channel=vc.channel, self_mute=mute, self_deaf=deafen)
+        await ctx.send(f"✅ Joined `{channel.name}` | Muted: `{mute}` | Deafened: `{deafen}`")
+    except discord.ClientException:
+        await ctx.send("❌ Already connected to a voice channel.")
+    except Exception as e:
+        await ctx.send(f"⚠️ Error: {e}")
+                                                                                                                                                    
+
+@bot.command()
+async def lvc(ctx):
+    """Leave the voice channel."""
+    if ctx.voice_client:
+        await ctx.voice_client.disconnect()
+        await ctx.send("✅ Disconnected from the voice channel.")
+    else:
+        await ctx.send("❌ I'm not connected to any voice channel.")
 
 # ✅ Run the bot
 bot.run(TOKEN, bot=False)
